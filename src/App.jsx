@@ -889,14 +889,7 @@ export default function App() {
         </div>
       </div>
 
-      {AI_PROVIDER ? null : (
-        <div style={{ background: "#fff1f2", color: "#991b1b", padding: "18px 32px", borderBottom: "1px solid #fecaca", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-          <div>
-            <strong>AI is disabled.</strong> Set `VITE_GEMINI_API_KEY` in a `.env` file and restart dev mode.
-          </div>
-          <div style={{ fontSize: 13, color: "#7c2d2d" }}>No AI provider configured.</div>
-        </div>
-      )}
+     
 
       {selected
         ? <CustomerDetail customer={selected} onBack={() => setSelected(null)} />
