@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import "./App.css";
 
+// App entry point and data generation for the matchmaking portal
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const isValidApiKey = (key) => typeof key === "string" && key.trim().length > 20 && !key.includes("your_openai_api_key") && !key.includes("your_anthropic_api_key") && !key.includes("your_gemini_api_key");
 const GEMINI_KEY = isValidApiKey(GEMINI_API_KEY) ? GEMINI_API_KEY : null;
 const AI_PROVIDER = GEMINI_KEY ? "Gemini" : null;
 
+// Static sample profile attributes used to build random Indian matchmaking profiles
 // ─── DUMMY DATA GENERATION ────────────────────────────────────────────────────
 
 const indianCities = ["Mumbai","Delhi","Bengaluru","Hyderabad","Chennai","Pune","Kolkata","Ahmedabad","Jaipur","Lucknow","Chandigarh","Coimbatore","Kochi","Nagpur","Indore","Bhopal","Surat","Vadodara","Nashik","Visakhapatnam"];
@@ -21,6 +23,7 @@ const femaleNames = ["Priya","Ananya","Kavya","Sneha","Pooja","Divya","Nisha","R
 const lastNames = ["Sharma","Patel","Singh","Kumar","Reddy","Nair","Iyer","Mehta","Joshi","Gupta","Verma","Mishra","Agarwal","Rao","Chopra","Pillai","Menon","Bose","Das","Sen","Malhotra","Kapoor","Saxena","Tiwari","Pandey","Srivastava","Bhatt","Shah","Chauhan","Yadav"];
 const yesNoMaybe = ["Yes","No","Maybe"];
 
+// Utility functions to select random profile attributes
 function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 function randLangs() {
@@ -29,6 +32,7 @@ function randLangs() {
   return shuffled.slice(0, n);
 }
 
+// Generate a mock customer profile with realistic attributes and preferences
 function generateProfile(id, gender) {
   const names = gender === "Male" ? maleNames : femaleNames;
   const firstName = rand(names);
@@ -39,6 +43,7 @@ function generateProfile(id, gender) {
   const income = randInt(4, 40) * 100000;
   const statusOptions = ["Active","Matched","On Hold","New"];
 
+  // Populate the final mock profile object for display and matching
   return {
     id,
     firstName,
@@ -78,6 +83,7 @@ function generateProfile(id, gender) {
   };
 }
 
+// Create initial sample client lists and match pools
 const MALE_CUSTOMERS = Array.from({ length: 15 }, (_, i) => generateProfile(i + 1, "Male"));
 const FEMALE_CUSTOMERS = Array.from({ length: 15 }, (_, i) => generateProfile(i + 16, "Female"));
 const ALL_CUSTOMERS = [...MALE_CUSTOMERS, ...FEMALE_CUSTOMERS];
@@ -86,6 +92,7 @@ const ALL_CUSTOMERS = [...MALE_CUSTOMERS, ...FEMALE_CUSTOMERS];
 const MALE_POOL = Array.from({ length: 120 }, (_, i) => generateProfile(200 + i, "Male"));
 const FEMALE_POOL = Array.from({ length: 120 }, (_, i) => generateProfile(300 + i, "Female"));
 
+// Matching algorithm for customer-candidate compatibility
 // ─── MATCHING LOGIC ───────────────────────────────────────────────────────────
 
 function scoreMatch(customer, candidate) {
@@ -93,52 +100,74 @@ function scoreMatch(customer, candidate) {
   const reasons = [];
 
   if (customer.gender === "Male") {
-    // For male customers: match with women younger, earn less, shorter, matching views on kids
+    // Male matching: traditional Indian matrimonial preferences
+    // Scoring based on age gap, income, height, children views, religion, caste, city
+
     const ageDiff = customer.age - candidate.age;
+    // Prefer younger women within 7 years — most accepted age gap in Indian marriages
     if (ageDiff >= 0 && ageDiff <= 7) { score += 25; reasons.push(`Age compatible (${candidate.age} yrs)`); }
     else if (ageDiff > 7) { score += 10; }
     else { score -= 10; }
 
+    // Income: candidate earning equal or less is preferred in traditional setup
     if (candidate.income <= customer.income) { score += 20; reasons.push("Income compatible"); }
     else { score -= 5; }
 
+    // Height: shorter candidate preferred as per common matrimonial expectations
     if (candidate.heightCm <= customer.heightCm) { score += 15; reasons.push("Height compatible"); }
 
+    // Children views: exact match scores highest, Maybe is treated as flexible
     if (candidate.wantKids === customer.wantKids) { score += 20; reasons.push("Same views on children"); }
     else if (candidate.wantKids === "Maybe" || customer.wantKids === "Maybe") { score += 10; }
 
+    // Religion and caste compatibility — high priority in Indian matrimonials
     if (candidate.religion === customer.religion) { score += 15; reasons.push("Same religion"); }
     if (candidate.caste === customer.caste) { score += 10; reasons.push("Same caste"); }
+
+    // Same city preferred for easier family meetings and logistics
     if (candidate.city === customer.city) { score += 5; reasons.push("Same city"); }
 
   } else {
-    // For female customers: profession compatibility, values, relocation preferences
+    // Female matching: values-based and career-forward compatibility
+    // Scoring based on profession, relocation, lifestyle, children views, religion, caste, age, income
+
     const proScore = professionCompatibility(customer.designation, candidate.designation);
     score += proScore;
+    // Career compatibility — grouped by tech, management, finance roles
     if (proScore > 15) reasons.push("Career compatible");
 
+    // Relocation flexibility is important for women considering lifestyle changes post marriage
     if (candidate.openToRelocate === customer.openToRelocate || candidate.openToRelocate === "Yes") {
       score += 15; reasons.push("Relocation aligned");
     }
 
+    // Lifestyle compatibility — pets, diet, children views
     if (candidate.openToPets === customer.openToPets) { score += 10; reasons.push("Pet preferences match"); }
     if (candidate.diet === customer.diet) { score += 10; reasons.push("Similar diet"); }
     if (candidate.wantKids === customer.wantKids) { score += 20; reasons.push("Same views on children"); }
+
+    // Religion and caste compatibility
     if (candidate.religion === customer.religion) { score += 15; reasons.push("Same religion"); }
     if (candidate.caste === customer.caste) { score += 10; reasons.push("Same caste"); }
 
+    // Age: male slightly older (0-5 years) is most accepted range in Indian matrimonials
     const ageDiff = candidate.age - customer.age;
     if (ageDiff >= 0 && ageDiff <= 5) { score += 15; reasons.push("Age compatible"); }
     else if (ageDiff > 5) { score += 5; }
 
+    // Income: stable or higher earning partner preferred
     if (candidate.income >= customer.income) { score += 10; reasons.push("Income stable"); }
+
+    // Same city and clean lifestyle habits as bonus factors
     if (candidate.city === customer.city) { score += 5; reasons.push("Same city"); }
     if (candidate.drinking === "Never" && customer.drinking === "Never") { score += 5; }
     if (candidate.smoking === "Never") { score += 5; }
   }
 
-  // Normalize to 0–100
+  // Normalize final score to 0-100 range
   const normalized = Math.min(100, Math.max(0, score));
+
+  // Assign match tier based on score range
   let tier = "Low Potential";
   if (normalized >= 75) tier = "High Potential";
   else if (normalized >= 50) tier = "Good Match";
@@ -153,6 +182,7 @@ function professionCompatibility(d1, d2) {
   const financeRoles = ["Finance Analyst","CA"];
   const marketingRoles = ["Marketing Manager","Sales Executive","HR Manager","Analyst"];
 
+  // Group roles into broad career categories for compatibility scoring
   const getGroup = (d) => {
     if (techRoles.includes(d)) return "tech";
     if (mgmtRoles.includes(d)) return "mgmt";
@@ -169,11 +199,15 @@ function professionCompatibility(d1, d2) {
 function getMatches(customer) {
   const pool = customer.gender === "Male" ? FEMALE_POOL : MALE_POOL;
   return pool
+    // Attach computed match metadata to each candidate
     .map(candidate => ({ ...candidate, matchData: scoreMatch(customer, candidate) }))
+    // Rank candidates by compatibility score descending
     .sort((a, b) => b.matchData.score - a.matchData.score)
+    // Return only the top 100 results to simplify UI rendering
     .slice(0, 100);
 }
 
+// Formatting and visual helper functions used across the interface
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 function fmt(n) { return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n); }
@@ -194,6 +228,7 @@ function statusColor(status) {
 const avatarColors = ["#F5D0FE","#FBCFE8","#E9D5FF","#FBCFE8","#F0ABFC","#FCE7F3"];
 function avatarColor(id) { return avatarColors[id % avatarColors.length]; }
 
+// Reusable UI components for small visual pieces of the dashboard
 // ─── COMPONENTS ───────────────────────────────────────────────────────────────
 
 function Avatar({ firstName, lastName, id, size = 44 }) {
@@ -230,6 +265,7 @@ function ScoreBar({ score }) {
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 
+// Login page for matchmakers with hardcoded credentials
 function LoginPage({ onLogin, onBack }) {
   const [u, setU] = useState(""); const [p, setP] = useState(""); const [err, setErr] = useState("");
   const handle = () => {
@@ -305,6 +341,7 @@ function LoginPage({ onLogin, onBack }) {
   );
 }
 
+// Marketing landing page shown before the matchmaker logs in
 function LandingPage({ onLoginClick }) {
   return (
     <div className="landing-page">
@@ -407,6 +444,7 @@ function LandingPage({ onLoginClick }) {
 
 // ─── CUSTOMER LIST ────────────────────────────────────────────────────────────
 
+// Single customer row used in the dashboard results list
 function CustomerRow({ c, onClick }) {
   const sc = statusColor(c.statusTag);
   return (
@@ -427,6 +465,7 @@ function CustomerRow({ c, onClick }) {
   );
 }
 
+// Main dashboard showing client list, search filters, and overall stats
 function Dashboard({ onSelect }) {
   const [search, setSearch] = useState("");
   const [gFilter, setGFilter] = useState("All");
@@ -434,6 +473,7 @@ function Dashboard({ onSelect }) {
 
   const filtered = useMemo(() => ALL_CUSTOMERS.filter(c => {
     const q = search.toLowerCase();
+    // Search text matches name, city, or company
     const nameMatch = `${c.firstName} ${c.lastName}`.toLowerCase().includes(q) || c.city.toLowerCase().includes(q) || c.company.toLowerCase().includes(q);
     const gMatch = gFilter === "All" || c.gender === gFilter;
     const sMatch = statusFilter === "All" || c.statusTag === statusFilter;
@@ -441,6 +481,7 @@ function Dashboard({ onSelect }) {
   }), [search, gFilter, statusFilter]);
 
   const stats = useMemo(() => ({
+    // Calculate dashboard summary numbers once unless customer data changes
     total: ALL_CUSTOMERS.length,
     active: ALL_CUSTOMERS.filter(c => c.statusTag === "Active").length,
     matched: ALL_CUSTOMERS.filter(c => c.statusTag === "Matched").length,
@@ -509,6 +550,7 @@ function Dashboard({ onSelect }) {
 
 // ─── MATCH CARD ───────────────────────────────────────────────────────────────
 
+// Match recommendation card showing candidate details, score, and action buttons
 function MatchCard({ match, customer, onSendMatch }) {
   const tc = tierColor(match.matchData.tier);
   return (
@@ -558,6 +600,7 @@ function MatchCard({ match, customer, onSendMatch }) {
 
 // ─── AI INTRO MODAL ───────────────────────────────────────────────────────────
 
+// AI introduction modal that creates a personalized introduction text for a match
 function AIIntroModal({ customer, match, onClose }) {
   const [intro, setIntro] = useState("");
   const [loading, setLoading] = useState(true);
@@ -568,8 +611,10 @@ function AIIntroModal({ customer, match, onClose }) {
 
     async function generate() {
       try {
+        // Build a short introduction using the top match reasons and score
         const reasons = match.matchData.reasons || [];
         const topReasons = reasons.slice(0, 3);
+        // Build a readable summary from the most important match reasons
         const reasonSummary = topReasons.length > 0
           ? topReasons.length === 1
             ? topReasons[0]
@@ -609,6 +654,7 @@ function AIIntroModal({ customer, match, onClose }) {
 
         const seed = `${customer.firstName}${match.firstName}${match.city}${match.age}${customer.age}${score}`;
         const hash = Array.from(seed).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        // Use a deterministic hash to pick one template from each section
         const choose = (items) => items[hash % items.length];
 
         const intro = `${choose(openers)} ${choose(bodies)} ${choose(closings)}`;
@@ -656,6 +702,7 @@ function AIIntroModal({ customer, match, onClose }) {
 
 // ─── SEND MATCH MODAL ─────────────────────────────────────────────────────────
 
+// Confirmation modal shown after a match is sent to the client
 function SendMatchModal({ customer, match, onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
@@ -684,6 +731,7 @@ function SendMatchModal({ customer, match, onClose }) {
 
 // ─── CUSTOMER DETAIL ──────────────────────────────────────────────────────────
 
+// Simple row component used inside the customer detail profile sections
 function InfoRow({ label, value }) {
   if (!value) return null;
   return (
@@ -694,6 +742,7 @@ function InfoRow({ label, value }) {
   );
 }
 
+// Detailed customer view with profile tabs, match list, and note-taking
 function CustomerDetail({ customer, onBack }) {
   const [tab, setTab] = useState("profile");
   const [note, setNote] = useState("");
@@ -704,14 +753,17 @@ function CustomerDetail({ customer, onBack }) {
   const matches = useMemo(() => getMatches(customer), [customer.id]);
   const matchesPerPage = 12;
   const totalPages = Math.max(1, Math.ceil(matches.length / matchesPerPage));
+  // Only show the matches for the current pagination page
   const visibleMatches = matches.slice((matchPage - 1) * matchesPerPage, matchPage * matchesPerPage);
 
+  // Reset pagination whenever a new customer is selected
   useEffect(() => setMatchPage(1), [customer.id]);
 
   useEffect(() => {
     const saved = localStorage.getItem(`tdc-notes-${customer.id}`);
     if (saved) {
       try {
+        // Load saved notes from local storage for this customer
         setNotes(JSON.parse(saved));
       } catch {
         setNotes([]);
@@ -723,10 +775,14 @@ function CustomerDetail({ customer, onBack }) {
   }, [customer.id]);
 
   useEffect(() => {
+    // Persist notes for this customer whenever they change
     localStorage.setItem(`tdc-notes-${customer.id}`, JSON.stringify(notes));
   }, [customer.id, notes]);
 
-  const addNote = () => { if (note.trim()) { setNotes(n => [...n, { text: note, time: new Date().toLocaleString() }]); setNote(""); } };
+  const addNote = () => {
+    // Save a new note for the current customer, then clear the draft text
+    if (note.trim()) { setNotes(n => [...n, { text: note, time: new Date().toLocaleString() }]); setNote(""); }
+  };
 
   const tabStyle = (t) => ({
     padding: "8px 18px", borderRadius: 20, cursor: "pointer", fontSize: 14, fontWeight: 600, border: "none",
@@ -859,12 +915,14 @@ function CustomerDetail({ customer, onBack }) {
 
 // ─── APP ROOT ─────────────────────────────────────────────────────────────────
 
+// Root application component managing authentication state and page routing
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [selected, setSelected] = useState(null);
 
   if (!loggedIn) {
+    // If the user is not logged in, show either the landing page or login page
     return showLogin
       ? <LoginPage onLogin={() => setLoggedIn(true)} onBack={() => setShowLogin(false)} />
       : <LandingPage onLoginClick={() => setShowLogin(true)} />;
@@ -892,9 +950,11 @@ export default function App() {
      
 
       {selected
+        // Show detail view when a customer is selected, otherwise show the dashboard
         ? <CustomerDetail customer={selected} onBack={() => setSelected(null)} />
         : <Dashboard onSelect={setSelected} />
       }
     </div>
   );
 }
+
